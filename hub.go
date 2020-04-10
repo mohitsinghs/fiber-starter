@@ -1,69 +1,57 @@
 package main
 
 import (
-	"encoding/json"
-	"github.com/gofiber/websocket"
-	"github.com/google/uuid"
-	"sync"
 	"sync/atomic"
 )
 
-// connection hub
+// connection hub for managing clients
 type Hub struct {
-	count   int64
-	clients map[*Client]bool
-	mt      sync.RWMutex
+	count     int64            // number of clients connected
+	clients   map[*Client]bool // map of connected clients
+	broadcast chan []byte      // channel to broadcast messages to all clients
+	add       chan *Client     // channel for adding clients
+	remove    chan *Client     // channel for removing clients
 }
 
-type Active struct {
-	Count int64 `json:"active"`
-}
-
-func NewHub() *Hub {
+// create new instance of hub
+func newHub() *Hub {
 	return &Hub{
-		count:   0,
-		clients: make(map[*Client]bool),
-		mt:      sync.RWMutex{},
+		count:     0,
+		clients:   make(map[*Client]bool),
+		broadcast: make(chan []byte),
+		add:       make(chan *Client),
+		remove:    make(chan *Client),
 	}
 }
 
-// add client
-func (h *Hub) add(conn *websocket.Conn) *Client {
-	h.mt.Lock()
-	defer h.mt.Unlock()
-	id := uuid.New()
-	client := &Client{
-		id:   id,
-		conn: conn,
-		hub:  h,
+// run hub and manage clients
+func (h *Hub) run() {
+	for {
+		select {
+		// add new client and update counter
+		case client := <-h.add:
+			h.clients[client] = true
+			atomic.AddInt64(&h.count, 1)
+			// remove exiting client and update counter
+		case client := <-h.remove:
+			if _, ok := h.clients[client]; ok {
+				delete(h.clients, client)
+				atomic.AddInt64(&h.count, -1)
+			}
+			// broadcast to all clients
+		case message := <-h.broadcast:
+			for client := range h.clients {
+				select {
+				// push message to client send channel
+				case client.send <- message:
+					// close channel when buffer is full
+					// delete client and update counter
+				default:
+					close(client.send)
+					delete(h.clients, client)
+					atomic.AddInt64(&h.count, -1)
+				}
+			}
+		}
 	}
-	atomic.AddInt64(&h.count, 1)
-	h.clients[client] = true
-	return client
-}
-
-// remove client
-func (h *Hub) remove(client *Client) {
-	h.mt.Lock()
-	defer h.mt.Unlock()
-	delete(h.clients, client)
-	atomic.AddInt64(&h.count, -1)
-}
-
-// send msg to all client
-func (h *Hub) sendAll(msg []byte) {
-	h.mt.RLock()
-	defer h.mt.RUnlock()
-	for c, _ := range h.clients {
-		c.send(msg)
-	}
-}
-
-func (h *Hub) broadcastActive() {
-	h.mt.RLock()
-	active, _ := json.Marshal(Active{
-		Count: h.count,
-	})
-	h.mt.RUnlock()
-	h.sendAll(active)
 }

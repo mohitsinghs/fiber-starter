@@ -1,3 +1,5 @@
+// +build linux darwin
+
 package main
 
 import (
@@ -15,8 +17,12 @@ func main() {
 	app.Use(helmet.New())
 	app.Use(logger.New())
 	app.Use(cors.New())
-	clients := NewHub()
 
+	// create hub for coordination between clients
+	hub := newHub()
+	go hub.run()
+
+	// a dummy get endpoint that says hello
 	app.Get("/hello/:name?", func(c *fiber.Ctx) {
 		name := c.Params("name")
 		if name != "" {
@@ -26,7 +32,12 @@ func main() {
 		}
 	})
 
-	app.Get("/ws", websocket.New(HandleWebsocket(clients)))
+	// websocket connection handler
+	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		// create new client with current connection
+		newClient(hub, c)
+	}))
 
+	// just listen
 	app.Listen(4500)
 }

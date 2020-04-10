@@ -2,24 +2,74 @@ package main
 
 import (
 	"github.com/gofiber/websocket"
-	"github.com/google/uuid"
-	"sync"
+	"log"
 )
 
-// socket connection
+// client for handling read/write
 type Client struct {
-	id   uuid.UUID
-	conn *websocket.Conn
-	hub  *Hub
-	mt   sync.Mutex
+	conn *websocket.Conn // fiber/fasthttp websocket connnection
+	hub  *Hub            // reference to hub
+	send chan []byte     // channel to recevice messages from hub
 }
 
-// send msg to one client
-func (c *Client) send(msg []byte) {
-	c.mt.Lock()
-	defer c.mt.Unlock()
-	err := c.conn.WriteMessage(TextType, msg)
-	if err != nil {
-		c.hub.remove(c)
+// read messages from websocket
+func (c *Client) read() {
+	defer func() {
+		// remove client from hub and close connection once we are done
+		c.hub.remove <- c
+		c.conn.Close()
+	}()
+	for {
+		// read messages
+		_, message, err := c.conn.ReadMessage()
+		if err != nil {
+			log.Printf("Reader Error: %v", err)
+			break
+		}
+		// print message
+		log.Println("Message", string(message))
+		// send to write ( like echo )
+		c.send <- message
 	}
+}
+
+// write messages to websocket
+func (c *Client) write() {
+	for {
+		select {
+		case message, ok := <-c.send:
+			// close connection if channel is closed
+			if !ok {
+				c.conn.Close()
+				return
+			}
+			// send current message from channel
+			err := c.conn.WriteMessage(TextType, message)
+			if err != nil {
+				log.Printf("Writer Error: %v", err)
+				return
+			}
+			// send all others from channel buffer
+			n := len(c.send)
+			for i := 0; i < n; i++ {
+				err = c.conn.WriteMessage(TextType, <-c.send)
+				if err != nil {
+					log.Printf("Writer Error: %v", err)
+					return
+				}
+			}
+		}
+	}
+}
+
+// Create new Client
+func newClient(h *Hub, c *websocket.Conn) {
+	// create a new client and push to hub
+	client := &Client{conn: c, hub: h, send: make(chan []byte, 256)}
+	client.hub.add <- client
+	// listen for writes in goroutine
+	go client.write()
+	// FIXME block handler to keep connnection alive
+	// listen for messages from connnection
+	client.read()
 }

@@ -14,8 +14,6 @@ github.com/gofiber/logger v0.0.2/go.mod h1:T7l+tmo4+GDHoW350MbpV+nHmWc3thyPRaklz
 github.com/gofiber/websocket v0.1.1 h1:xbMO9VhUZ0YoIkawtXkhqm4Mi+htHOZtqFOFGQQK5lw=
 github.com/gofiber/websocket v0.1.1/go.mod h1:DgMYC5O6wKftsYEvRDxAcf6wOLlfAWl0ASM/iQls03w=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
-github.com/google/uuid v1.1.1 h1:Gkbcsh/GbpXz7lPftLA3P6TYMwjCLYm83jiFQZF/3gY=
-github.com/google/uuid v1.1.1/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+yHo=
 github.com/gorilla/schema v1.1.0 h1:CamqUDOFUBqzrvxuz2vEwo8+SUdwsluFh7IlzJh30LY=
 github.com/gorilla/schema v1.1.0/go.mod h1:kgLaKoK1FELgZqMAVxx/5cbj0kT+57qxUrAlIO2eleU=
 github.com/json-iterator/go v1.1.9 h1:9yzud/Ht36ygwatGx56VwCZtlI/2AD15T1X2sjSuGns=
