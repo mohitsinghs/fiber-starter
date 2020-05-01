@@ -15,15 +15,15 @@ type Client struct {
 // read messages from websocket
 func (c *Client) read() {
 	defer func() {
-		// remove client from hub and close connection once we are done
+		// remove client from hub, close writer and connection once we are done
 		c.hub.remove <- c
+		close(c.send)
 		c.conn.Close()
 	}()
 	for {
 		// read messages
 		_, message, err := c.conn.ReadMessage()
 		if err != nil {
-			log.Printf("Reader Error: %v", err)
 			break
 		}
 		// print message
@@ -35,28 +35,18 @@ func (c *Client) read() {
 
 // write messages to websocket
 func (c *Client) write() {
-	for {
-		select {
-		case message, ok := <-c.send:
-			// close connection if channel is closed
-			if !ok {
-				c.conn.Close()
-				return
-			}
-			// send current message from channel
-			err := c.conn.WriteMessage(TextType, message)
+	for message := range c.send {
+		// send current message from channel
+		err := c.conn.WriteMessage(TextType, message)
+		if err != nil {
+			return
+		}
+		// send all others from channel buffer
+		n := len(c.send)
+		for i := 0; i < n; i++ {
+			err = c.conn.WriteMessage(TextType, <-c.send)
 			if err != nil {
-				log.Printf("Writer Error: %v", err)
 				return
-			}
-			// send all others from channel buffer
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				err = c.conn.WriteMessage(TextType, <-c.send)
-				if err != nil {
-					log.Printf("Writer Error: %v", err)
-					return
-				}
 			}
 		}
 	}
