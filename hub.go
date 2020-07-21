@@ -14,18 +14,20 @@ type Hub struct {
 }
 
 // create new instance of hub
-func newHub() *Hub {
-	return &Hub{
+func NewHub() *Hub {
+	hub := &Hub{
 		count:     0,
 		clients:   make(map[*Client]bool),
 		broadcast: make(chan []byte),
 		add:       make(chan *Client),
 		remove:    make(chan *Client),
 	}
+	go hub.Run()
+	return hub
 }
 
 // run hub and manage clients
-func (h *Hub) run() {
+func (h *Hub) Run() {
 	for {
 		select {
 		// add new client and update counter

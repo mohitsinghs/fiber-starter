@@ -16,8 +16,7 @@ func main() {
 	app.Use(cors.New())
 
 	// create hub for coordination between clients
-	hub := newHub()
-	go hub.run()
+	hub := NewHub()
 
 	// websocket connection handler
 	app.Get("/ws", websocket.New(func(c *websocket.Conn) {
